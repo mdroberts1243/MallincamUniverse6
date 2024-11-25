@@ -359,7 +359,7 @@ namespace ASCOM.MallincamUniverse_I.Camera
             {
                 if (cameraState != CameraStates.cameraExposing)
                 {
-                    LogMessage("DRCB", "Camera wasn't doing an exposure, returning");
+                    LogMessage("DRCB", "Driver wasn't doing an exposure, returning");
                     return;
                 }
 
@@ -389,14 +389,17 @@ namespace ASCOM.MallincamUniverse_I.Camera
                     {
                         IntPtr ptr = new IntPtr((void*)buf);
                         System.Diagnostics.Debug.WriteLine($"DRCB Starting call of CameraGetImageData");
+                        LogMessage("DRCB", $"Calling Get Image Data");
                         //CheckStatus(NativeDriver.CameraGetImageData(ptr));  // throwing an exception (returns 0)
                         NativeDriver.tagTS_CAMERA_STATUS status = NativeDriver.CameraGetImageData(ptr);
                         while (status != tagTS_CAMERA_STATUS.STATUS_OK)
                         {
                             System.Diagnostics.Debug.WriteLine($"DRCB Bad Status for call of CameraGetImageData: {status}");
+                            LogMessage("DRCB", $"Calling Get Image Data pointer, again");
                             status = NativeDriver.CameraGetImageData(ptr);
                         }
                         System.Diagnostics.Debug.WriteLine($"DRCB Finished call of CameraGetImageData");
+                        LogMessage("DRCB", $"Success in getting Image Data Pointer");
 
                         byte* raw = buf;
 
@@ -900,16 +903,16 @@ namespace ASCOM.MallincamUniverse_I.Camera
             get
             {
                 ushort gain = 25; // 25 to 960 corresponds to 6.878dB to 26.007dB
-                LogMessage("Gain", $"Get Analog Gain");
-                NativeDriver.CameraGetAnalogGain(ref gain);
-                tl.LogMessage("Gain Get", gain.ToString());
+                LogMessage("Gain", $"Calling Get Analog Gain");
+                CheckStatus(NativeDriver.CameraGetAnalogGain(ref gain));
+                LogMessage("Gain Get", gain.ToString());
                 return (short)gain;
             }
             set
             {
-                LogMessage("Gain", $"Set Analog Gain");
-                NativeDriver.CameraSetAnalogGain((ushort)value);
-                tl.LogMessage("Gain Set", value.ToString());
+                LogMessage("Gain", $"Calling Set Analog Gain");
+                CheckStatus(NativeDriver.CameraSetAnalogGain((ushort)value));
+                LogMessage("Gain Set", value.ToString());
             }
         }
 
