@@ -301,18 +301,26 @@ namespace ASCOM.MallincamUniverse_I.Camera
                             SharedData.WindowHandle // hReceive
                             );
 
+                    LogMessage("Connected Set", $"CameraInit() returned: {connStatus.ToString()}");
+
                     if (connStatus == NativeDriver.tagTS_CAMERA_STATUS.STATUS_OK)
                     {
 
                         connectedState = true;
 
+                        LogMessage("Connected Set", $"Set Analog Gain");
                         CheckStatus(NativeDriver.CameraSetAnalogGain(25));  // minimum gain is 25
+                        LogMessage("Connected Set", $"Set Frame Speed");
                         CheckStatus(NativeDriver.CameraSetFrameSpeed((byte)NativeDriver.tagTS_SPEED_MODE.SPEED_MODE_B)); // NORMAL, A-G, MAX
+                        LogMessage("Connected Set", $"Set Data Wide");
                         CheckStatus(NativeDriver.CameraSetDataWide(true));
+                        LogMessage("Connected Set", $"Set Display Enable");
                         CheckStatus(NativeDriver.CameraDisplayEnable(false)); // no display window
+                        LogMessage("Connected Set", $"Camera Play Mode");
                         CheckStatus(NativeDriver.CameraPlay());
                         cameraState = CameraStates.cameraIdle;
 
+                        LogMessage("Connected Set", $"Get Image Size");
                         CheckStatus(NativeDriver.CameraGetImageSize(ref cameraNumX, ref cameraNumY));
                         LogMessage("SetConnected", $"Got image size, NumX: {cameraNumX}, NumY: {cameraNumY}");
                     }
@@ -329,7 +337,9 @@ namespace ASCOM.MallincamUniverse_I.Camera
                     LogMessage("Connected Set", $"Disconnecting from Mallincam Universe");
 
                     // TODO insert disconnect from the device code here
+                    LogMessage("Connected Set", $"Camera Stop Mode");
                     NativeDriver.CameraStop();
+                    LogMessage("Connected Set", $"Camera Un-Initialize");
                     NativeDriver.CameraUnInit();
 
                     connectedState = false;
@@ -355,10 +365,12 @@ namespace ASCOM.MallincamUniverse_I.Camera
 
                 int width = 0, height = 0;
                 // Does this return the wrong value after a binning/resolution change?
+                LogMessage("DRCB", $"Get Image Size");
                 CheckStatus(NativeDriver.CameraGetImageSize(ref width, ref height));
                 System.Diagnostics.Debug.WriteLine($"DRCB got image size: {width}x{height}");
 
                 // Stop the camera, but change state to cameraDownload
+                LogMessage("DRCB", $"Camera Stop Mode");
                 CheckStatus(NativeDriver.CameraStop()); // Let's stop the camera while we download.
                 cameraState = CameraStates.cameraDownload;
 
@@ -402,6 +414,7 @@ namespace ASCOM.MallincamUniverse_I.Camera
                 LogMessage("DRCB", "Completed download of image");
                 System.Diagnostics.Debug.WriteLine($"DRCB Finished download of image");
 
+                LogMessage("DRCB", $"Camera Play Mode");
                 CheckStatus(NativeDriver.CameraPlay()); // restart the camera after getting image.
                 cameraState = CameraStates.cameraIdle;
                 cameraImageReady = true;
@@ -422,7 +435,9 @@ namespace ASCOM.MallincamUniverse_I.Camera
             LogMessage("CLCB", $"We've lost the camera callback called!");
             cameraImageReady = false;
             connectedState = false; //MDR: modded
+            LogMessage("CLCB", $"Camera Stop Mode");
             NativeDriver.CameraStop();
+            LogMessage("CLCB", $"Camera Un-Initialize");
             NativeDriver.CameraUnInit();
         }
 
@@ -523,6 +538,8 @@ namespace ASCOM.MallincamUniverse_I.Camera
         /// </summary>
         static private void CheckStatus(NativeDriver.tagTS_CAMERA_STATUS status)
         {
+            LogMessage("CheckStatus", $"Got: {status.ToString()}");
+
             if (status != NativeDriver.tagTS_CAMERA_STATUS.STATUS_OK)
             {
                 throw new ASCOM.DriverException("Driver error: " + status.ToString());
@@ -883,12 +900,14 @@ namespace ASCOM.MallincamUniverse_I.Camera
             get
             {
                 ushort gain = 25; // 25 to 960 corresponds to 6.878dB to 26.007dB
+                LogMessage("Gain", $"Get Analog Gain");
                 NativeDriver.CameraGetAnalogGain(ref gain);
                 tl.LogMessage("Gain Get", gain.ToString());
                 return (short)gain;
             }
             set
             {
+                LogMessage("Gain", $"Set Analog Gain");
                 NativeDriver.CameraSetAnalogGain((ushort)value);
                 tl.LogMessage("Gain Set", value.ToString());
             }
@@ -1359,11 +1378,14 @@ namespace ASCOM.MallincamUniverse_I.Camera
             {
                 cameraLastExposureDuration = Duration;
                 float rowTime = 721.0f;
+                LogMessage("Start Exposure", $"Get Camera Row Time");
                 CheckStatus(NativeDriver.CameraGetRowTime(ref rowTime));
 
                 uint expTimeUSec = (uint)Math.Round((Duration * 1000.0d * 1000.0d) / ((double)rowTime));
 
+                LogMessage("Start Exposure", $"Set Long Exposure Power");
                 CheckStatus(NativeDriver.CameraSetLongExpPower(Duration > 30.0d));
+                LogMessage("Start Exposure", $"Set Exposure Time");
                 CheckStatus(NativeDriver.CameraSetExposureTime(expTimeUSec));
             }
             // regardless, set the state to exposing so our Callback will process the next image.
