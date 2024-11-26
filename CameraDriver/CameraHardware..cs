@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using ASCOM;
 using ASCOM.Astrometry.AstroUtils;
@@ -298,7 +299,8 @@ namespace ASCOM.MallincamUniverse_I.Camera
                     NativeDriver.tagTS_CAMERA_STATUS connStatus = NativeDriver.CameraInit(
                             (byte)NativeDriver.tagTSCCD413_RESOLUTION.TS413II_3032_2018,
                             (IntPtr)null, // hWndDisplay is null
-                            SharedData.WindowHandle // hReceive
+//                            SharedData.WindowHandle // hReceive
+                            (IntPtr)null   // no window events.
                             );
 
                     LogMessage("Connected Set", $"CameraInit() returned: {connStatus.ToString()}");
@@ -316,8 +318,11 @@ namespace ASCOM.MallincamUniverse_I.Camera
                         CheckStatus(NativeDriver.CameraSetDataWide(true));
                         LogMessage("Connected Set", $"Set Display Enable");
                         CheckStatus(NativeDriver.CameraDisplayEnable(false)); // no display window
-                        LogMessage("Connected Set", $"Camera Play Mode");
-                        CheckStatus(NativeDriver.CameraPlay());
+                        //LogMessage("Connected Set", $"Camera Play Mode");
+                        //CheckStatus(NativeDriver.CameraPlay());
+                        //cameraState = CameraStates.cameraIdle;
+                        LogMessage("Connected Set", $"Camera Stop Mode"); 
+                        NativeDriver.CameraStop();  // CheckStatus returns internal error... ignoring
                         cameraState = CameraStates.cameraIdle;
 
                         LogMessage("Connected Set", $"Get Image Size");
@@ -390,10 +395,16 @@ namespace ASCOM.MallincamUniverse_I.Camera
                         IntPtr ptr = new IntPtr((void*)buf);
                         System.Diagnostics.Debug.WriteLine($"DRCB Starting call of CameraGetImageData");
                         LogMessage("DRCB", $"Calling Get Image Data");
-                        //CheckStatus(NativeDriver.CameraGetImageData(ptr));  // throwing an exception (returns 0)
+
                         NativeDriver.tagTS_CAMERA_STATUS status = NativeDriver.CameraGetImageData(ptr);
-                        while (status != tagTS_CAMERA_STATUS.STATUS_OK)
+                        int i = 0;
+                        while ( (status != tagTS_CAMERA_STATUS.STATUS_OK) && (i++ < 100))
                         {
+                            if (i == 100)
+                            {
+                                LogMessage("DRCB", "Failed to get Image Data Pointer");
+                                return;
+                            }
                             System.Diagnostics.Debug.WriteLine($"DRCB Bad Status for call of CameraGetImageData: {status}");
                             LogMessage("DRCB", $"Calling Get Image Data pointer, again");
                             status = NativeDriver.CameraGetImageData(ptr);
@@ -417,17 +428,18 @@ namespace ASCOM.MallincamUniverse_I.Camera
                 LogMessage("DRCB", "Completed download of image");
                 System.Diagnostics.Debug.WriteLine($"DRCB Finished download of image");
 
-                LogMessage("DRCB", $"Camera Play Mode");
-                CheckStatus(NativeDriver.CameraPlay()); // restart the camera after getting image.
+                //LogMessage("DRCB", $"Camera Play Mode");
+                //CheckStatus(NativeDriver.CameraPlay()); // restart the camera after getting image.
                 cameraState = CameraStates.cameraIdle;
                 cameraImageReady = true;
                 LogMessage("DRCB", "cameraImageReady set to true");
                 System.Diagnostics.Debug.WriteLine($"DRCB set cameraImageReady to true");
+                return;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"DRCB Exception: {ex}");
-
+                return;
             }
         }
 
@@ -1363,7 +1375,7 @@ namespace ASCOM.MallincamUniverse_I.Camera
         /// </summary>
         /// <param name="Duration">Duration of exposure in seconds, can be zero if <see cref="StartExposure">Light</see> is <c>false</c></param>
         /// <param name="Light"><c>true</c> for light frame, <c>false</c> for dark frame (ignored if no shutter)</param>
-        static internal void StartExposure(double Duration, bool Light)
+        static internal async void StartExposure(double Duration, bool Light)
         {
             if (Duration < 0.0) throw new InvalidValueException("StartExposure", Duration.ToString(), "0.0 upwards");
             if (cameraNumX > ccdWidth) throw new InvalidValueException("StartExposure", cameraNumX.ToString(), ccdWidth.ToString());
@@ -1377,8 +1389,8 @@ namespace ASCOM.MallincamUniverse_I.Camera
 
             // O.k. Camera is always exposing in the background.
             // So only change the exposure if needed.
-            if (cameraLastExposureDuration != Duration)
-            {
+            //if (cameraLastExposureDuration != Duration)
+            //{
                 cameraLastExposureDuration = Duration;
                 float rowTime = 721.0f;
                 LogMessage("Start Exposure", $"Get Camera Row Time");
@@ -1390,9 +1402,19 @@ namespace ASCOM.MallincamUniverse_I.Camera
                 CheckStatus(NativeDriver.CameraSetLongExpPower(Duration > 30.0d));
                 LogMessage("Start Exposure", $"Set Exposure Time");
                 CheckStatus(NativeDriver.CameraSetExposureTime(expTimeUSec));
-            }
+            // Start Camera to take exposure
+            LogMessage("Start Exposure", $"Camera Play Mode");
+            CheckStatus(NativeDriver.CameraPlay());
+
+            //}
             // regardless, set the state to exposing so our Callback will process the next image.
             cameraState = CameraStates.cameraExposing;
+
+            // Asynchronous wait for the exposure plus some extra ms
+            //   then force call OnDataReady to poll for the Image Data
+            await Task.Delay((int)(expTimeUSec / 1000 + 50));
+            LogMessage("Start Exposure", "The wait is over! Calling DRCB");
+            OnDataReady();
         }
 
         /// <summary>
