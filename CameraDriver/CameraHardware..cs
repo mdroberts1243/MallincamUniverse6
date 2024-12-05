@@ -358,7 +358,7 @@ namespace ASCOM.MallincamUniverse_I.Camera
         /// </summary>
         public static void OnDataReady() // MDR: added static, changed private to public
         {
-            System.Diagnostics.Debug.WriteLine("DRCB invoked");
+            //System.Diagnostics.Debug.WriteLine("DRCB invoked");
             LogMessage("DRCB", $"I was called! Data Ready CallBack");
             try
             {
@@ -369,10 +369,10 @@ namespace ASCOM.MallincamUniverse_I.Camera
                 }
 
                 int width = 0, height = 0;
-                // Does this return the wrong value after a binning/resolution change?
+                // Does this return the wrong value after a binning/resolution change? YES when you go back to 1x1
                 LogMessage("DRCB", $"Get Image Size");
                 CheckStatus(NativeDriver.CameraGetImageSize(ref width, ref height));
-                System.Diagnostics.Debug.WriteLine($"DRCB got image size: {width}x{height}");
+                //System.Diagnostics.Debug.WriteLine($"DRCB got image size: {width}x{height}");
 
                 // Stop the camera, but change state to cameraDownload
                 LogMessage("DRCB", $"Camera Stop Mode");
@@ -383,17 +383,17 @@ namespace ASCOM.MallincamUniverse_I.Camera
                 {
                     cameraImageArray = new int[width, height];
                     LogMessage("DRCB", $"Created new cameraImageArray of: {width}x{height}");
-                    System.Diagnostics.Debug.WriteLine($"DRCB Created new cameraImageArray of: {width}x{height}");
+                    //System.Diagnostics.Debug.WriteLine($"DRCB Created new cameraImageArray of: {width}x{height}");
                 }
 
                 byte[] buffer = new byte[(width * height * 2) + 512];
-                System.Diagnostics.Debug.WriteLine($"DRCB Created byte[] buffer with new byte of size: {(width * height * 2) + 512}");
+                //System.Diagnostics.Debug.WriteLine($"DRCB Created byte[] buffer with new byte of size: {(width * height * 2) + 512}");
                 unsafe
                 {
                     fixed (byte* buf = buffer)
                     {
                         IntPtr ptr = new IntPtr((void*)buf);
-                        System.Diagnostics.Debug.WriteLine($"DRCB Starting call of CameraGetImageData");
+                        //System.Diagnostics.Debug.WriteLine($"DRCB Starting call of CameraGetImageData");
                         LogMessage("DRCB", $"Calling Get Image Data");
 
                         NativeDriver.tagTS_CAMERA_STATUS status = NativeDriver.CameraGetImageData(ptr);
@@ -405,11 +405,11 @@ namespace ASCOM.MallincamUniverse_I.Camera
                                 LogMessage("DRCB", "Failed to get Image Data Pointer");
                                 return;
                             }
-                            System.Diagnostics.Debug.WriteLine($"DRCB Bad Status for call of CameraGetImageData: {status}");
+                            //System.Diagnostics.Debug.WriteLine($"DRCB Bad Status for call of CameraGetImageData: {status}");
                             LogMessage("DRCB", $"Calling Get Image Data pointer, again");
                             status = NativeDriver.CameraGetImageData(ptr);
                         }
-                        System.Diagnostics.Debug.WriteLine($"DRCB Finished call of CameraGetImageData");
+                        //System.Diagnostics.Debug.WriteLine($"DRCB Finished call of CameraGetImageData");
                         LogMessage("DRCB", $"Success in getting Image Data Pointer");
 
                         byte* raw = buf;
@@ -422,18 +422,18 @@ namespace ASCOM.MallincamUniverse_I.Camera
                                 raw += 2;
                             }
                         }
-                        System.Diagnostics.Debug.WriteLine($"DRCB Finished copying raw into cameraImageArray of Ints");
+                        //System.Diagnostics.Debug.WriteLine($"DRCB Finished copying raw into cameraImageArray of Ints");
                     }
                 }
                 LogMessage("DRCB", "Completed download of image");
-                System.Diagnostics.Debug.WriteLine($"DRCB Finished download of image");
+                //System.Diagnostics.Debug.WriteLine($"DRCB Finished download of image");
 
                 //LogMessage("DRCB", $"Camera Play Mode");
                 //CheckStatus(NativeDriver.CameraPlay()); // restart the camera after getting image.
                 cameraState = CameraStates.cameraIdle;
                 cameraImageReady = true;
                 LogMessage("DRCB", "cameraImageReady set to true");
-                System.Diagnostics.Debug.WriteLine($"DRCB set cameraImageReady to true");
+                //System.Diagnostics.Debug.WriteLine($"DRCB set cameraImageReady to true");
                 return;
             }
             catch (Exception ex)
@@ -446,7 +446,7 @@ namespace ASCOM.MallincamUniverse_I.Camera
         // If we lost the camera, clear image ready and connected states.
         public static void OnCameraLost() // changed private to public
         {
-            System.Diagnostics.Debug.WriteLine("DRCB invoked");
+            System.Diagnostics.Debug.WriteLine("CLCB invoked");
             LogMessage("CLCB", $"We've lost the camera callback called!");
             cameraImageReady = false;
             connectedState = false; //MDR: modded
